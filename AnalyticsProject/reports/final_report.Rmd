@@ -1,0 +1,10 @@
+   # Predictive Analytics Project
+
+   This project aims to demonstrate the ability to work through the analytics pipeline from beginning to end, focusing on predictive modeling using regression and classification techniques.
+
+   ## Project Structure
+   - `data/`: Contains datasets.
+   - `scripts/`: Contains R scripts for analysis.
+   - `results/`: Contains output files.
+   - `reports/`: Contains reports and documentation.
+   - `figures/`: Contains generated figures and plots.

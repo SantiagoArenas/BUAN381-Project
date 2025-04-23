@@ -1,0 +1,15 @@
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Load the dataset
+data <- read.csv("data/test.csv")
+
+# View the structure of the dataset
+str(data)
+
+# Summary statistics
+summary(data)
+
+# Check for missing values
+colSums(is.na(data))
