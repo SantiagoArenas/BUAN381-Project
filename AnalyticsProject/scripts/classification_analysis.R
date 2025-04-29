@@ -7,15 +7,15 @@ library(rpart)
 library(randomForest)
 
 # Load the dataset
-train <- read.csv("../data/train.csv")
-test <- read.csv("../data/test.csv")
+train <- read.csv("AnalyticsProject/data/train.csv")
+test <- read.csv("AnalyticsProject/data/test.csv")
 
 # Ensure the target variable is a factor for classification
 train$homeType <- as.factor(ifelse(train$homeType_Single.Family == 1, "Single Family", "Other"))
 test$homeType <- as.factor(ifelse(test$homeType_Single.Family == 1, "Single Family", "Other"))
 
-# Partition the training data into training and validation sets
-set.seed(123)
+# Split the training dataset into training and validation sets
+set.seed(123)  # For reproducibility
 train_index <- createDataPartition(train$homeType, p = 0.7, list = FALSE)
 train_data <- train[train_index, ]
 valid_data <- train[-train_index, ]
@@ -23,8 +23,8 @@ valid_data <- train[-train_index, ]
 # Define a function to calculate performance metrics
 evaluate_model <- function(model, data, target_col) {
   predictions <- predict(model, data, type = "class")
-  confusion <- confusionMatrix(predictions, data[[target_col]])
-  auc <- roc(as.numeric(data[[target_col]]), as.numeric(predictions))$auc
+  confusion <- caret::confusionMatrix(predictions, data[[target_col]])
+  auc <- pROC::roc(as.numeric(data[[target_col]]), as.numeric(predictions))$auc
   list(confusion = confusion, auc = auc)
 }
 
