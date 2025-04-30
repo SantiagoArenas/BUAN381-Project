@@ -1,0 +1,6 @@
+	Condo	Other	Single Family	Townhouse	Vacant Land
+Condo	19	0	19	4	0
+Other	0	6	0	0	0
+Single Family	60	13	2845	23	0
+Townhouse	0	0	0	0	0
+Vacant Land	0	1	4	0	17

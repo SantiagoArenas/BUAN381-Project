@@ -177,3 +177,15 @@ ggplot(train, aes(x = latestPrice)) +
                 y = "Frequency") +
      theme_minimal()
 dev.off()
+
+# 11. Confusion Matrix for Classification
+library(caret)
+
+# Predict homeType for the test set using the decision tree model
+test$predicted_homeType <- predict(tree_model, test, type = "class")
+
+# Generate the confusion matrix
+conf_matrix <- confusionMatrix(test$predicted_homeType, test$homeType)
+
+# Save the confusion matrix to a text file
+write.table(as.matrix(conf_matrix), file = "AnalyticsProject/results/confusion_matrix.txt", sep = "\t", col.names = NA, quote = FALSE)
