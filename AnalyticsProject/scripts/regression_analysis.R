@@ -22,10 +22,19 @@ train_index <- createDataPartition(train$latestPrice, p = 0.7, list = FALSE)
 train_data <- train[train_index, ]
 valid_data <- train[-train_index, ]
 
+# Initialize an empty data frame to store results
+results <- data.frame(
+  Model = character(),
+  In_Sample_RMSE = numeric(),
+  Out_Sample_RMSE = numeric(),
+  R2 = numeric(),
+  stringsAsFactors = FALSE
+)
+
 # Correlation matrix
 numeric_vars <- train %>% select_if(is.numeric)
 cor_matrix <- cor(numeric_vars, use = "complete.obs")
-print(cor_matrix)
+#print(cor_matrix)
 
 # Save the correlation matrix as a CSV
 write.csv(cor_matrix, "AnalyticsProject/results/correlation_matrix.csv")
@@ -83,7 +92,7 @@ gc()
 # 3. Regularized Regression (Ridge and Lasso)
 x_train <- model.matrix(latestPrice ~ ., train_data)[, -1]
 y_train <- train_data$latestPrice
-x_valid <- model.matrix(latestPrice ~ ., valid_data)[, -1]
+x_valid <- model.matrix(latestPrice ~ ., valid_data)[, colnames(x_train), drop = FALSE]
 y_valid <- valid_data$latestPrice
 
 # Ridge Regression
@@ -127,12 +136,23 @@ rm(lasso_in_sample_predictions, lasso_out_sample_predictions, lasso_in_sample_rm
 gc()
 
 # 4. Multivariate Linear Regression
-multi_lm_model <- lm(latestPrice ~ ., data = train_data)
-multi_lm_in_sample_predictions <- predict(multi_lm_model, train_data)
-multi_lm_out_sample_predictions <- predict(multi_lm_model, valid_data)
-multi_lm_in_sample_rmse <- calculate_rmse(train_data$latestPrice, multi_lm_in_sample_predictions)
-multi_lm_out_sample_rmse <- calculate_rmse(valid_data$latestPrice, multi_lm_out_sample_predictions)
-multi_lm_r2 <- calculate_r2(valid_data$latestPrice, multi_lm_out_sample_predictions)
+multi_model <- lm(latestPrice ~ . - latest_saledate, data = train_data)
+multi_in_pred <- predict(multi_model, train_data %>% select(-latest_saledate))
+multi_out_pred <- predict(multi_model, valid_data %>% select(-latest_saledate))
+
+multi_in_rmse <- calculate_rmse(
+  train_data$latestPrice, multi_in_pred
+)
+multi_out_rmse <- calculate_rmse(
+  valid_data$latestPrice, multi_out_pred
+)
+multi_r2 <- calculate_r2(
+  valid_data$latestPrice, multi_out_pred
+)
+
+# Ensure consistent factor levels
+valid_data <- valid_data %>%
+  mutate(across(where(is.factor), ~ factor(.x, levels = levels(train_data[[cur_column()]]))))
 
 # Append results for Multivariate Linear Regression
 results <- rbind(results, data.frame(
