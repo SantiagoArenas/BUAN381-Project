@@ -33,7 +33,8 @@ print(table(train$homeType))
 # Initialize a results data frame
 results <- data.frame(
   Model = character(),
-  Accuracy = numeric(),
+  InSampleAccuracy = numeric(),
+  OutOfSampleAccuracy = numeric(),
   AUC = numeric(),
   stringsAsFactors = FALSE
 )
@@ -54,127 +55,186 @@ valid_data$homeType <- ifelse(valid_data$homeType == "Single Family", 1, 0)
 
 # Logistic Regression
 logit_model <- glm(homeType ~ ., data = train_data, family = binomial)
-logit_predictions <- predict(logit_model, valid_data, type = "response")
-logit_class <- ifelse(logit_predictions > 0.5, 1, 0)
-logit_confusion <- confusionMatrix(as.factor(logit_class), as.factor(valid_data$homeType))
+
+# In-sample predictions
+logit_in_sample_predictions <- predict(logit_model, train_data, type = "response")
+logit_in_sample_class <- ifelse(logit_in_sample_predictions > 0.5, 1, 0)
+logit_in_sample_confusion <- confusionMatrix(as.factor(logit_in_sample_class), as.factor(train_data$homeType))
+
+# Out-of-sample predictions
+logit_out_sample_predictions <- predict(logit_model, valid_data, type = "response")
+logit_out_sample_class <- ifelse(logit_out_sample_predictions > 0.5, 1, 0)
+logit_out_sample_confusion <- confusionMatrix(as.factor(logit_out_sample_class), as.factor(valid_data$homeType))
 
 # Calculate AUC using probabilities
-logit_auc <- roc(valid_data$homeType, logit_predictions)$auc
+logit_in_sample_auc <- roc(train_data$homeType, logit_in_sample_predictions)$auc
+logit_out_sample_auc <- roc(valid_data$homeType, logit_out_sample_predictions)$auc
 
-# Save Logistic Regression ROC Curve
+# Save Logistic Regression ROC Curve (Out-of-sample)
 png("AnalyticsProject/results/img/class/logistic_regression_roc.png", width = 800, height = 600)
-plot(roc(valid_data$homeType, logit_predictions), main = paste("Logistic Regression ROC Curve (AUC =", round(logit_auc, 3), ")"))
+plot(roc(valid_data$homeType, logit_out_sample_predictions), main = paste("Logistic Regression ROC Curve (AUC =", round(logit_out_sample_auc, 3), ")"))
 dev.off()
 
 # Append results for Logistic Regression
 results <- rbind(results, data.frame(
   Model = "Logistic Regression",
-  Accuracy = logit_confusion$overall["Accuracy"],
-  AUC = logit_auc
+  InSampleAccuracy = logit_in_sample_confusion$overall["Accuracy"],
+  OutOfSampleAccuracy = logit_out_sample_confusion$overall["Accuracy"],
+  AUC = logit_out_sample_auc
 ))
 
 # Probit Model
 probit_model <- glm(homeType ~ ., data = train_data, family = binomial(link = "probit"))
-probit_predictions <- predict(probit_model, valid_data, type = "response")
-probit_class <- ifelse(probit_predictions > 0.5, 1, 0)
-probit_confusion <- confusionMatrix(as.factor(probit_class), as.factor(valid_data$homeType))
+
+# In-sample predictions
+probit_in_sample_predictions <- predict(probit_model, train_data, type = "response")
+probit_in_sample_class <- ifelse(probit_in_sample_predictions > 0.5, 1, 0)
+probit_in_sample_confusion <- confusionMatrix(as.factor(probit_in_sample_class), as.factor(train_data$homeType))
+
+# Out-of-sample predictions
+probit_out_sample_predictions <- predict(probit_model, valid_data, type = "response")
+probit_out_sample_class <- ifelse(probit_out_sample_predictions > 0.5, 1, 0)
+probit_out_sample_confusion <- confusionMatrix(as.factor(probit_out_sample_class), as.factor(valid_data$homeType))
 
 # Calculate AUC using probabilities
-probit_auc <- roc(valid_data$homeType, probit_predictions)$auc
+probit_in_sample_auc <- roc(train_data$homeType, probit_in_sample_predictions)$auc
+probit_out_sample_auc <- roc(valid_data$homeType, probit_out_sample_predictions)$auc
 
-# Save Probit Model ROC Curve
+# Save Probit Model ROC Curve (Out-of-sample)
 png("AnalyticsProject/results/img/class/probit_model_roc.png", width = 800, height = 600)
-plot(roc(valid_data$homeType, probit_predictions), main = paste("Probit Model ROC Curve (AUC =", round(probit_auc, 3), ")"))
+plot(roc(valid_data$homeType, probit_out_sample_predictions), main = paste("Probit Model ROC Curve (AUC =", round(probit_out_sample_auc, 3), ")"))
 dev.off()
 
 # Append results for Probit Model
 results <- rbind(results, data.frame(
   Model = "Probit Model",
-  Accuracy = probit_confusion$overall["Accuracy"],
-  AUC = probit_auc
+  InSampleAccuracy = probit_in_sample_confusion$overall["Accuracy"],
+  OutOfSampleAccuracy = probit_out_sample_confusion$overall["Accuracy"],
+  AUC = probit_out_sample_auc
 ))
 
 # Decision Tree
 tree_model <- rpart(homeType ~ ., data = train_data, method = "class")
-tree_predictions <- predict(tree_model, valid_data, type = "class")
-tree_confusion <- confusionMatrix(as.factor(tree_predictions), as.factor(valid_data$homeType))
 
-# Save Decision Tree Plot
+# In-sample predictions
+tree_in_sample_predictions <- predict(tree_model, train_data, type = "class")
+tree_in_sample_confusion <- confusionMatrix(as.factor(tree_in_sample_predictions), as.factor(train_data$homeType))
+
+# Out-of-sample predictions
+tree_out_sample_predictions <- predict(tree_model, valid_data, type = "class")
+tree_out_sample_confusion <- confusionMatrix(as.factor(tree_out_sample_predictions), as.factor(valid_data$homeType))
+
+# Save Decision Tree Plot with Enhanced Visualization
 png("AnalyticsProject/results/img/class/decision_tree.png", width = 800, height = 600)
-plot(tree_model)
-text(tree_model, use.n = TRUE, all = TRUE, cex = 0.8)
+rpart.plot::rpart.plot(tree_model, type = 3, extra = 101, under = TRUE, fallen.leaves = TRUE, 
+             main = "Decision Tree Visualization", cex = 0.8)
 dev.off()
 
 # Append results for Decision Tree
 results <- rbind(results, data.frame(
   Model = "Decision Tree",
-  Accuracy = tree_confusion$overall["Accuracy"],
+  InSampleAccuracy = tree_in_sample_confusion$overall["Accuracy"],
+  OutOfSampleAccuracy = tree_out_sample_confusion$overall["Accuracy"],
   AUC = NA  # AUC not applicable for Decision Tree
 ))
 
-# Random Forest
+# Recode homeType as factor for classification
+train_data$homeType <- as.factor(train_data$homeType)
+valid_data$homeType <- as.factor(valid_data$homeType)
+
+# Refit the Random Forest model as a classification model
 rf_model <- randomForest(homeType ~ ., data = train_data, ntree = 50)
-rf_predictions <- predict(rf_model, valid_data)
-rf_confusion <- confusionMatrix(as.factor(rf_predictions), as.factor(valid_data$homeType))
+
+# In-sample predictions
+rf_in_sample_predictions <- predict(rf_model, train_data)
+rf_in_sample_confusion <- confusionMatrix(rf_in_sample_predictions, train_data$homeType)
+
+# Out-of-sample predictions
+rf_out_sample_predictions <- predict(rf_model, valid_data)
+rf_out_sample_confusion <- confusionMatrix(rf_out_sample_predictions, valid_data$homeType)
+
+# Predict probabilities for class "1"
+rf_in_sample_probabilities <- predict(rf_model, train_data, type = "prob")[, "1"]
+rf_out_sample_probabilities <- predict(rf_model, valid_data, type = "prob")[, "1"]
+
+# Calculate AUC
+rf_in_sample_auc <- roc(as.numeric(train_data$homeType), rf_in_sample_probabilities)$auc
+rf_out_sample_auc <- roc(as.numeric(valid_data$homeType), rf_out_sample_probabilities)$auc
 
 # Save Random Forest Variable Importance Plot
 png("AnalyticsProject/results/img/class/random_forest_importance.png", width = 800, height = 600)
 varImpPlot(rf_model, main = "Random Forest Variable Importance")
 dev.off()
 
+# Save ROC Curve (Out-of-sample)
+png("AnalyticsProject/results/img/class/random_forest_roc.png", width = 800, height = 600)
+plot(roc(as.numeric(valid_data$homeType), rf_out_sample_probabilities), main = paste("Random Forest ROC Curve (AUC =", round(rf_out_sample_auc, 3), ")"))
+dev.off()
+
 # Append results for Random Forest
 results <- rbind(results, data.frame(
   Model = "Random Forest",
-  Accuracy = rf_confusion$overall["Accuracy"],
-  AUC = NA  # AUC not calculated for Random Forest
+  InSampleAccuracy = rf_in_sample_confusion$overall["Accuracy"],
+  OutOfSampleAccuracy = rf_out_sample_confusion$overall["Accuracy"],
+  AUC = rf_out_sample_auc
 ))
 
-# Oversample the minority class
-oversample <- function(data, target_col) {
-  # Split the data into majority and minority classes
-  majority <- data[data[[target_col]] == 0, ]
-  minority <- data[data[[target_col]] == 1, ]
-  
-  # Oversample the minority class
-  oversampled_minority <- minority[sample(1:nrow(minority), size = nrow(majority), replace = TRUE), ]
-  
-  # Combine the majority and oversampled minority classes
-  balanced_data <- rbind(majority, oversampled_minority)
-  return(balanced_data)
-}
+# Print and export results
+print(results)
+write.csv(results, "AnalyticsProject/results/classification_summary.csv", row.names = FALSE)
 
-# Apply oversampling to the training data
-train_data <- oversample(train_data, "homeType")
+# Train a basic SVM model without scaling
+svm_model <- svm(homeType ~ ., data = train_data, kernel = "linear", cost = 1)
 
-# Scale the data
-train_data_scaled <- train_data %>% mutate(across(-homeType, scale))
-valid_data_scaled <- valid_data %>% mutate(across(-homeType, scale))
+# In-sample predictions
+svm_in_sample_predictions <- predict(svm_model, train_data)
+svm_in_sample_predictions <- factor(svm_in_sample_predictions, levels = levels(train_data$homeType))
+svm_in_sample_confusion <- confusionMatrix(svm_in_sample_predictions, train_data$homeType)
 
-# Train SVM with tuned hyperparameters
-svm_tuned <- tune(svm, homeType ~ ., data = train_data_scaled, 
-                  kernel = "linear", 
-                  ranges = list(cost = c(0.1, 1, 10, 100)))
-svm_model <- svm_tuned$best.model
-
-# Predict on validation data
-svm_predictions <- predict(svm_model, valid_data_scaled)
-
-# Ensure levels match between predictions and reference
-svm_predictions <- factor(svm_predictions, levels = levels(valid_data$homeType))
+# Out-of-sample predictions
+svm_out_sample_predictions <- predict(svm_model, valid_data)
+svm_out_sample_predictions <- factor(svm_out_sample_predictions, levels = levels(valid_data$homeType))
 
 # Check for empty predictions
-if (length(unique(svm_predictions)) < 2) {
+if (length(unique(svm_out_sample_predictions)) < 2) {
   stop("SVM predictions contain only one class. Check the model or data.")
 }
 
-# Calculate confusion matrix
-svm_confusion <- confusionMatrix(svm_predictions, as.factor(valid_data$homeType))
+# Out-of-sample confusion matrix
+svm_out_sample_confusion <- confusionMatrix(svm_out_sample_predictions, valid_data$homeType)
+
+# Predict probabilities for class "1" (if applicable)
+svm_in_sample_probabilities <- attr(predict(svm_model, train_data, decision.values = TRUE), "decision.values")
+svm_out_sample_probabilities <- attr(predict(svm_model, valid_data, decision.values = TRUE), "decision.values")
+
+# Calculate AUC if probabilities are available
+svm_in_sample_auc <- if (!is.null(svm_in_sample_probabilities)) {
+  roc(as.numeric(train_data$homeType), svm_in_sample_probabilities)$auc
+} else {
+  NA
+}
+
+svm_out_sample_auc <- if (!is.null(svm_out_sample_probabilities)) {
+  roc(as.numeric(valid_data$homeType), svm_out_sample_probabilities)$auc
+} else {
+  NA
+}
+
+# Save SVM ROC Curve (Out-of-sample)
+if (!is.null(svm_out_sample_probabilities)) {
+  png("AnalyticsProject/results/img/class/svm_roc.png", width = 800, height = 600)
+  plot(roc(as.numeric(valid_data$homeType), svm_out_sample_probabilities), main = paste("SVM ROC Curve (AUC =", round(svm_out_sample_auc, 3), ")"))
+  dev.off()
+} else {
+  message("SVM probabilities are not available for ROC curve.")
+}
 
 # Append results for SVM
 results <- rbind(results, data.frame(
   Model = "SVM",
-  Accuracy = svm_confusion$overall["Accuracy"],
-  AUC = NA  # AUC not calculated for SVM
+  InSampleAccuracy = svm_in_sample_confusion$overall["Accuracy"],
+  OutOfSampleAccuracy = svm_out_sample_confusion$overall["Accuracy"],
+  AUC = svm_out_sample_auc
 ))
 
 # Save the final results table
@@ -182,3 +242,27 @@ write.csv(results, "AnalyticsProject/results/classification_results.csv", row.na
 
 # Print results
 print(results)
+
+
+# Combine ROC curves for all models
+roc_logit <- roc(valid_data$homeType, logit_out_sample_predictions)
+roc_probit <- roc(valid_data$homeType, probit_out_sample_predictions)
+roc_rf <- roc(as.numeric(valid_data$homeType), rf_out_sample_probabilities)
+roc_svm <- if (!is.null(svm_out_sample_probabilities)) roc(as.numeric(valid_data$homeType), svm_out_sample_probabilities) else NULL
+
+# Plot combined ROC curves
+png("AnalyticsProject/results/img/class/combined_roc.png", width = 800, height = 600)
+plot(roc_logit, col = "blue", lwd = 2, main = "Combined ROC Curves")
+lines(roc_probit, col = "red", lwd = 2)
+lines(roc_rf, col = "green", lwd = 2)
+if (!is.null(roc_svm)) lines(roc_svm, col = "purple", lwd = 2)
+
+# Add legend
+legend("bottomright", legend = c(
+  paste("Logistic Regression (AUC =", round(roc_logit$auc, 3), ")"),
+  paste("Probit Model (AUC =", round(roc_probit$auc, 3), ")"),
+  paste("Random Forest (AUC =", round(roc_rf$auc, 3), ")"),
+  if (!is.null(roc_svm)) paste("SVM (AUC =", round(roc_svm$auc, 3), ")") else NULL
+), col = c("blue", "red", "green", if (!is.null(roc_svm)) "purple" else NULL), lwd = 2)
+
+dev.off()

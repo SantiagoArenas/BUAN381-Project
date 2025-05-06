@@ -231,27 +231,106 @@ results <- rbind(results, data.frame(
 rm(gam_in_sample_predictions, gam_out_sample_predictions, gam_in_sample_rmse, gam_out_sample_rmse, gam_r2)
 gc()
 
-# Plot all bivariate models
-png("AnalyticsProject/results/img/all_models_comparison.png", width = 1200, height = 800, res = 150)
+# Add predictions to the train_data
+train_data <- train_data %>%
+  mutate(
+    Linear_Pred = predict(lm_model, train_data),
+    Poly_Pred = predict(poly_model, train_data),
+    Ridge_Pred = as.numeric(predict(ridge_model, s = ridge_model$lambda.min, newx = x_train)),
+    Lasso_Pred = as.numeric(predict(lasso_model, s = lasso_model$lambda.min, newx = x_train)),
+    Multi_Pred = predict(multi_model, train_data),
+    GAM_Pred = predict(gam_model, train_data)
+  )
+
+# Generate R² labels for each model
+r2_values <- data.frame(
+  Model = c("Linear", "Polynomial", "Ridge", "Lasso", "Multivariate", "GAM"),
+  R2 = c(
+    calculate_r2(train_data$latestPrice, train_data$Linear_Pred),
+    calculate_r2(train_data$latestPrice, train_data$Poly_Pred),
+    calculate_r2(train_data$latestPrice, train_data$Ridge_Pred),
+    calculate_r2(train_data$latestPrice, train_data$Lasso_Pred),
+    calculate_r2(train_data$latestPrice, train_data$Multi_Pred),
+    calculate_r2(train_data$latestPrice, train_data$GAM_Pred)
+  )
+)
+r2_values$Label <- paste0(r2_values$Model, " (R² = ", round(r2_values$R2, 3), ")")
+
+# Plot the models
+png("AnalyticsProject/results/img/reg/all_models_comparison.png", width = 1200, height = 800, res = 150)
 ggplot(train_data, aes(x = livingAreaSqFt, y = latestPrice)) +
   geom_point(alpha = 0.6, color = "gray") +
-  geom_smooth(method = "lm", color = "blue", se = FALSE, aes(linetype = "Linear")) +
-  geom_smooth(method = "lm", formula = y ~ poly(x, 2), color = "red", se = FALSE, aes(linetype = "Polynomial")) +
-  geom_line(aes(y = predict(ridge_model, s = ridge_model$lambda.min, newx = x_train), linetype = "Ridge"), color = "green") +
-  geom_line(aes(y = predict(lasso_model, s = lasso_model$lambda.min, newx = x_train), linetype = "Lasso"), color = "purple") +
-  geom_line(aes(y = predict(multi_model, train_data), linetype = "Multivariate"), color = "orange") +
-  geom_line(aes(y = predict(gam_model, train_data), linetype = "GAM"), color = "brown") +
+  geom_line(aes(y = Linear_Pred, linetype = r2_values$Label[1]), color = "blue") +
+  geom_line(aes(y = Poly_Pred, linetype = r2_values$Label[2]), color = "red") +
+  geom_line(aes(y = Ridge_Pred, linetype = r2_values$Label[3]), color = "green") +
+  geom_line(aes(y = Lasso_Pred, linetype = r2_values$Label[4]), color = "purple") +
+  geom_line(aes(y = Multi_Pred, linetype = r2_values$Label[5]), color = "orange") +
+  geom_line(aes(y = GAM_Pred, linetype = r2_values$Label[6]), color = "brown") +
   labs(title = "Comparison of All Models",
        x = "Living Area (SqFt)",
        y = "Latest Price") +
   theme_minimal() +
   scale_linetype_manual(name = "Model", 
-                        values = c("Linear" = "solid", 
-                                   "Polynomial" = "dashed", 
-                                   "Ridge" = "dotdash", 
-                                   "Lasso" = "twodash", 
-                                   "Multivariate" = "longdash", 
-                                   "GAM" = "dotted"))
+                        values = setNames(c("solid", "dashed", "dotdash", "twodash", "longdash", "dotted"), 
+                                          r2_values$Label))
+dev.off()
+
+
+# Filter data for homes under 7500 sqft and Latest Price under 5e+06
+filtered_train_data <- train_data %>%
+  filter(livingAreaSqFt < 7500, latestPrice < 5e+06)
+
+# train data for filtered data
+x_train <- model.matrix(formula, filtered_train_data)[, -1]  # Remove intercept column
+y_train <- filtered_train_data$latestPrice
+# Build model matrices for filtered data
+ridge_model <- cv.glmnet(x_train, y_train, alpha = 0)  # alpha = 0 for Ridge Regression
+lasso_model <- cv.glmnet(x_train, y_train, alpha = 1)
+multi_model <- lm(latestPrice ~ ., data = filtered_train_data)
+gam_model <- gam(latestPrice ~ s(livingAreaSqFt) + s(yearBuilt), data = filtered_train_data)
+
+# Add predictions to the filtered_train_data
+filtered_train_data <- filtered_train_data %>%
+  mutate(
+    Linear_Pred = predict(lm_model, filtered_train_data),
+    Poly_Pred = predict(poly_model, filtered_train_data),
+    Ridge_Pred = as.numeric(predict(ridge_model, s = ridge_model$lambda.min, newx = model.matrix(formula, filtered_train_data)[, -1])),
+    Lasso_Pred = as.numeric(predict(lasso_model, s = lasso_model$lambda.min, newx = model.matrix(formula, filtered_train_data)[, -1])),
+    Multi_Pred = predict(multi_model, filtered_train_data),
+    GAM_Pred = predict(gam_model, filtered_train_data)
+  )
+
+# Generate R² labels for each model
+r2_values <- data.frame(
+  Model = c("Linear", "Polynomial", "Ridge", "Lasso", "Multivariate", "GAM"),
+  R2 = c(
+    calculate_r2(filtered_train_data$latestPrice, filtered_train_data$Linear_Pred),
+    calculate_r2(filtered_train_data$latestPrice, filtered_train_data$Poly_Pred),
+    calculate_r2(filtered_train_data$latestPrice, filtered_train_data$Ridge_Pred),
+    calculate_r2(filtered_train_data$latestPrice, filtered_train_data$Lasso_Pred),
+    calculate_r2(filtered_train_data$latestPrice, filtered_train_data$Multi_Pred),
+    calculate_r2(filtered_train_data$latestPrice, filtered_train_data$GAM_Pred)
+  )
+)
+r2_values$Label <- paste0(r2_values$Model, " (R² = ", round(r2_values$R2, 3), ")")
+
+# Plot the models
+png("AnalyticsProject/results/img/reg/filtered_models_comparison.png", width = 1200, height = 800, res = 150)
+ggplot(filtered_train_data, aes(x = livingAreaSqFt, y = latestPrice)) +
+  geom_point(alpha = 0.6, color = "gray") +
+  geom_line(aes(y = Linear_Pred, linetype = r2_values$Label[1]), color = "blue") +
+  geom_line(aes(y = Poly_Pred, linetype = r2_values$Label[2]), color = "red") +
+  geom_line(aes(y = Ridge_Pred, linetype = r2_values$Label[3]), color = "green") +
+  geom_line(aes(y = Lasso_Pred, linetype = r2_values$Label[4]), color = "purple") +
+  geom_line(aes(y = Multi_Pred, linetype = r2_values$Label[5]), color = "orange") +
+  geom_line(aes(y = GAM_Pred, linetype = r2_values$Label[6]), color = "brown") +
+  labs(title = "Comparison of All Models (Filtered Data)",
+       x = "Living Area (SqFt)",
+       y = "Latest Price") +
+  theme_minimal() +
+  scale_linetype_manual(name = "Model", 
+                        values = setNames(c("solid", "dashed", "dotdash", "twodash", "longdash", "dotted"), 
+                                          r2_values$Label))
 dev.off()
 
 # Support Vector Machine (SVM)
@@ -281,7 +360,7 @@ rf_in_sample_rmse <- calculate_rmse(train_data$latestPrice, rf_in_sample_predict
 rf_out_sample_rmse <- calculate_rmse(valid_data$latestPrice, rf_out_sample_predictions)
 rf_r2 <- calculate_r2(valid_data$latestPrice, rf_out_sample_predictions)
 # Plot Random Forest
-png("AnalyticsProject/results/img/random_forest.png", width = 1200, height = 800, res = 150)
+png("AnalyticsProject/results/img/reg/random_forest.png", width = 1200, height = 800, res = 150)
 ggplot(train_data, aes(x = livingAreaSqFt, y = latestPrice)) +
   geom_point(alpha = 0.6, color = "gray", aes(shape = "Data Points")) +
   geom_smooth(method = "rf", color = "green", se = FALSE, aes(linetype = "Random Forest")) +
